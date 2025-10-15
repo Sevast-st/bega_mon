@@ -1,4 +1,4 @@
-# bega_mon
+# BegaMon
 ## A Cross-Chain Bridge Event Listener Simulation
 
 This repository contains a Python-based simulation of a cross-chain bridge event listener. This component is a critical piece of off-chain infrastructure for any decentralized bridge, responsible for monitoring events on a source blockchain and triggering corresponding actions on a destination chain.
@@ -32,16 +32,16 @@ The script is divided into several distinct classes, each with a single responsi
 
 *   `EventProcessor`:
     *   **Responsibility**: Decodes and transforms raw blockchain event logs into structured, human-readable data.
-    *   **Key Functions**: Takes a raw log from the `BlockchainConnector` and uses the contract's ABI to parse it into a clean dictionary containing event parameters like `user`, `amount`, etc.
+    *   **Key Functions**: Parses raw event logs from the `BlockchainConnector` using the contract's ABI, transforming them into structured dictionaries containing event parameters like `user`, `amount`, etc.
 
 *   `CrossChainDispatcher`:
     *   **Responsibility**: Simulates the action of relaying the event information to the destination chain.
-    *   **Key Functions**: Constructs a JSON payload from the processed event data and sends it via an HTTP POST request to a mock API endpoint using the `requests` library.
+    *   **Key Functions**: Formats the processed event data into a JSON payload and dispatches it to a destination API endpoint via an HTTP POST request using the `requests` library.
     *   **Features**: Includes retry logic for API requests to handle temporary network or service issues.
 
 *   `BridgeContractMonitor`:
-    *   **Responsibility**: The central orchestrator. It coordinates the other components to run the end-to-end monitoring process.
-    *   **Key Functions**: Contains the main simulation loop that periodically checks for new blocks, fetches logs, processes them, and dispatches them. It also manages the state, such as tracking the last successfully scanned block number.
+    *   **Responsibility**: The central orchestrator that coordinates all other components to run the end-to-end monitoring process.
+    *   **Key Functions**: Manages the main simulation loop that periodically checks for new blocks, fetches logs, processes them, and dispatches them. It also manages state, such as tracking the last successfully scanned block number.
 
 #### Data Flow
 
@@ -71,17 +71,17 @@ The script is divided into several distinct classes, each with a single responsi
 3.  **Polling Loop**: The monitor enters an infinite `asyncio` loop where it:
     a.  Fetches the latest block number from the source chain.
     b.  Calculates a `to_block` number by subtracting a confirmation delay (e.g., 6 blocks) from the latest block. This prevents processing transactions that might be reversed in a reorg.
-    c.  If `to_block` is greater than the `last_scanned_block`, it requests all logs for the `TokensLocked` event between these two blocks.
+    c.  If new blocks have been confirmed (i.e., `to_block` > `last_scanned_block`), it requests all `TokensLocked` event logs within this new block range.
     d.  For each log found, it is passed to the `EventProcessor` to be decoded.
     e.  The resulting structured data is passed to the `CrossChainDispatcher`.
     f.  The dispatcher sends the data to the configured mock API endpoint.
-    g.  After scanning the range, the `last_scanned_block` is updated to `to_block`.
+    g.  After successfully scanning the range, it updates `last_scanned_block` to `to_block` to mark its progress.
 
 4.  **Error Handling**: If an RPC connection drops or an API call fails, the respective components will automatically retry the operation several times before logging a critical error.
 
 ---
 
-### Usage Example
+### Usage
 
 1.  **Clone the repository:**
     ```bash
@@ -103,31 +103,60 @@ The script is divided into several distinct classes, each with a single responsi
     # RPC URL for the source chain (e.g., Ethereum Sepolia testnet)
     SOURCE_CHAIN_RPC_URL="https://rpc.sepolia.org"
     
-    # Address of the bridge contract to monitor (use a real one if you have it, otherwise placeholder is fine for simulation)
+    # Address of the bridge contract to monitor
     BRIDGE_CONTRACT_ADDRESS="0xc5a61774B7a238B213133A52373079015A75438A"
     
     # The API endpoint of the destination chain's relayer service (mocked)
-    DESTINATION_API_ENDPOINT="https://jsonplaceholder.typicode.com/posts" # Using a public mock API for testing
+    DESTINATION_API_ENDPOINT="https://jsonplaceholder.typicode.com/posts" # A public mock API for testing
     ```
 
-4.  **Run the script:**
+4.  **Add Contract ABI:**
+    The script needs the contract's ABI to decode events. Create a file named `abi.json` in the root directory containing the ABI for the event you are monitoring. For a `TokensLocked` event, it would look something like this:
+
+    ```json
+    [
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "user",
+            "type": "address"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
+          }
+        ],
+        "name": "TokensLocked",
+        "type": "event"
+      }
+    ]
+    ```
+
+5.  **Run the script:**
     ```bash
     python script.py
     ```
 
-5.  **Expected Output:**
+6.  **Expected Output:**
     The script will start logging its activities to the console. You will see messages about connecting to the blockchain, scanning block ranges, and hopefully finding and processing events if the configured contract has any.
 
     ```
-    2023-10-27 15:30:00 - INFO - [script:235] - --- BegaMon Cross-Chain Bridge Monitor Simulation ---
+    YYYY-MM-DD HH:MM:SS - INFO - --- BegaMon Cross-Chain Bridge Monitor Simulation ---
     
-    2023-10-27 15:30:01 - INFO - [script:74] - Attempting to connect to blockchain node at https://rpc.sepolia.org...
-    2023-10-27 15:30:02 - INFO - [script:78] - Successfully connected to blockchain node.
-    2023-10-27 15:30:02 - INFO - [script:80] - Connected to Chain ID: 11155111
-    2023-10-27 15:30:03 - INFO - [script:205] - Determined starting block for scan: 4750100
-    2023-10-27 15:30:03 - INFO - [script:214] - Starting bridge event monitoring loop...
-    2023-10-27 15:30:04 - INFO - [script:221] - Scanning blocks from 4750101 to 4750195...
-    2023-10-27 15:30:05 - INFO - [script:231] - No new events found in this range.
-    2023-10-27 15:30:20 - INFO - [script:234] - No new confirmed blocks to process. Current head: 4750201, last scanned: 4750195
+    YYYY-MM-DD HH:MM:SS - INFO - Attempting to connect to blockchain node at https://rpc.sepolia.org...
+    YYYY-MM-DD HH:MM:SS - INFO - Successfully connected to blockchain node.
+    YYYY-MM-DD HH:MM:SS - INFO - Connected to Chain ID: 11155111
+    YYYY-MM-DD HH:MM:SS - INFO - Determined starting block for scan: 4750100
+    YYYY-MM-DD HH:MM:SS - INFO - Starting bridge event monitoring loop...
+    YYYY-MM-DD HH:MM:SS - INFO - Scanning blocks from 4750101 to 4750195...
+    YYYY-MM-DD HH:MM:SS - INFO - No new events found in this range.
+    YYYY-MM-DD HH:MM:SS - INFO - No new confirmed blocks to process. Current head: 4750201, last scanned: 4750195
     ...
     ```
+
+---
