@@ -3,7 +3,7 @@
 
 This repository contains a Python-based simulation of a cross-chain bridge event listener. This component is a critical piece of off-chain infrastructure for any decentralized bridge, responsible for monitoring events on a source blockchain and triggering corresponding actions on a destination chain.
 
-This script is designed to be architecturally robust, demonstrating best practices such as separation of concerns, configuration management, and resilient error handling.
+The application is designed to be architecturally robust, demonstrating best practices such as separation of concerns, configuration management, and resilient error handling.
 
 ---
 
@@ -31,7 +31,7 @@ The script is divided into several distinct classes, each with a single responsi
     *   **Features**: Includes connection retry logic with exponential backoff.
 
 *   `EventProcessor`:
-    *   **Responsibility**: Decodes and transforms raw blockchain event logs into structured, human-readable data.
+    *   **Responsibility**: Decodes and transforms raw blockchain event logs into structured, application-friendly data.
     *   **Key Functions**: Parses raw event logs from the `BlockchainConnector` using the contract's ABI, transforming them into structured dictionaries containing event parameters like `user`, `amount`, etc.
 
 *   `CrossChainDispatcher`:
@@ -62,7 +62,7 @@ The script is divided into several distinct classes, each with a single responsi
 
 ---
 
-### How it Works
+### How It Works
 
 1.  **Initialization**: The `main` function instantiates the `BridgeContractMonitor`, which in turn sets up the `BlockchainConnector`, `EventProcessor`, and `CrossChainDispatcher` with configuration loaded from a `.env` file.
 
@@ -85,8 +85,8 @@ The script is divided into several distinct classes, each with a single responsi
 
 1.  **Clone the repository:**
     ```bash
-    git clone <repository-url>
-    cd bega_mon
+    git clone https://github.com/your-username/BegaMon.git
+    cd BegaMon
     ```
 
 2.  **Install dependencies:**
@@ -96,6 +96,8 @@ The script is divided into several distinct classes, each with a single responsi
 
 3.  **Configure environment variables:**
     Create a file named `.env` in the root directory and add the following configuration. You will need an RPC URL for an Ethereum-compatible chain (e.g., from Infura or Alchemy).
+
+    *Note: The `.env` file contains sensitive information and should be added to your `.gitignore` to prevent committing it to version control.*
 
     ```env
     # .env file
@@ -143,7 +145,7 @@ The script is divided into several distinct classes, each with a single responsi
     ```
 
 6.  **Expected Output:**
-    The script will start logging its activities to the console. You will see messages about connecting to the blockchain, scanning block ranges, and hopefully finding and processing events if the configured contract has any.
+    The script will start logging its activities to the console. You will see messages about connecting to the blockchain and scanning block ranges. If the monitored contract has emitted events in the scanned range, you will also see logs for them being processed and dispatched.
 
     ```
     YYYY-MM-DD HH:MM:SS - INFO - --- BegaMon Cross-Chain Bridge Monitor Simulation ---
