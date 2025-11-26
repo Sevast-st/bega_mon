@@ -1,7 +1,7 @@
 # BegaMon
 ## A Cross-Chain Bridge Event Listener Simulation
 
-This repository contains a Python-based simulation of a cross-chain bridge event listener. This component is a critical piece of the off-chain infrastructure required for any decentralized bridge. It is responsible for monitoring events on a source blockchain and triggering corresponding actions on a destination chain.
+This repository contains a Python-based simulation of a cross-chain bridge event listener. This component, often called a "relayer," is a critical piece of the off-chain infrastructure required for any decentralized bridge. It is responsible for monitoring events on a source blockchain and triggering corresponding actions on a destination chain.
 
 The application is designed to be architecturally robust, demonstrating best practices such as separation of concerns, configuration management, and resilient error handling.
 
@@ -9,12 +9,12 @@ The application is designed to be architecturally robust, demonstrating best pra
 
 ### Concept
 
-A cross-chain bridge allows users to transfer assets or data from one blockchain (the 'source chain') to another (the 'destination chain'). A common mechanism for this is 'lock-and-mint'.
+A cross-chain bridge allows users to transfer assets or data from one blockchain (the 'source chain') to another (the 'destination chain'). A common mechanism for this is the 'lock-and-mint' pattern:
 
 1.  **Lock**: A user sends tokens to a smart contract on the source chain, which locks them.
-2.  **Event Emission**: The smart contract emits an event (e.g., `TokensLocked`) containing details of the transaction (user, token, amount, destination address).
+2.  **Event Emission**: The smart contract emits an event (e.g., `TokensLocked`) containing details of the transaction (user, amount, destination address).
 3.  **Listen**: An off-chain service, the 'event listener' or 'relayer', constantly monitors the source chain for this specific event.
-4.  **Validate**: Upon detecting the event, the listener waits for a few block confirmations to ensure the transaction is final and not part of a blockchain reorganization (reorg).
+4.  **Validate**: Upon detecting an event, the listener waits for a few block confirmations to ensure the transaction is final and not part of a blockchain reorganization (reorg).
 5.  **Dispatch**: The listener then securely communicates with a contract on the destination chain, instructing it to 'mint' an equivalent amount of a wrapped token and send it to the user's destination address.
 
 This project simulates the **listener** and **dispatcher** components (steps 3-5).
@@ -26,46 +26,47 @@ This project simulates the **listener** and **dispatcher** components (steps 3-5
 The application is architected with several distinct classes, each with a single responsibility. This makes the system modular, easier to test, and more understandable.
 
 *   `BlockchainConnector`:
-    *   **Responsibility**: Manages all direct communication with the source chain's RPC node using the `web3.py` library.
-    *   **Key Functions**: Establishes and maintains a connection, fetches the latest block number, and retrieves event logs for specified block ranges.
+    *   **Responsibility**: Manages all direct communication with the source chain's RPC node using `web3.py`.
+    *   **Key Functions**: Establishes a connection, fetches the latest block number, and retrieves event logs for specified block ranges.
     *   **Features**: Includes connection retry logic with exponential backoff.
 
 *   `EventProcessor`:
     *   **Responsibility**: Decodes and transforms raw blockchain event logs into structured, application-friendly data.
-    *   **Key Functions**: Parses raw event logs from the `BlockchainConnector` using the contract's ABI, transforming them into structured dictionaries containing event parameters like `user`, `amount`, etc.
+    *   **Key Functions**: Parses raw event logs from the `BlockchainConnector` using the contract's ABI, transforming them into structured dictionaries.
 
 *   `CrossChainDispatcher`:
-    *   **Responsibility**: Simulates the action of relaying the event information to the destination chain.
-    *   **Key Functions**: Formats the processed event data into a JSON payload and dispatches it to a destination API endpoint via an HTTP POST request using the `requests` library.
+    *   **Responsibility**: Simulates relaying the processed event information to the destination chain.
+    *   **Key Functions**: Formats event data into a JSON payload and dispatches it to a destination API endpoint via an HTTP POST request using `requests`.
     *   **Features**: Includes retry logic for API requests to handle temporary network or service issues.
 
 *   `BridgeContractMonitor`:
     *   **Responsibility**: The central orchestrator that coordinates all other components to run the end-to-end monitoring process.
-    *   **Key Functions**: Manages the main simulation loop that periodically checks for new blocks, fetches logs, processes them, and dispatches them. It also manages state, such as tracking the last successfully scanned block number.
+    *   **Key Functions**: Manages the main simulation loop that periodically checks for new blocks, fetches logs, processes them, and triggers their dispatch. It also manages state, such as tracking the last successfully scanned block number.
 
 #### Data Flow
 
 ```
-[RPC Node] <--> (1. Get Blocks/Logs) <--> [BlockchainConnector]
-                                                 |
-                                                 |
+[RPC Node] <--> (1. Fetch Blocks/Logs) <--> [BlockchainConnector]
+                                                    |
+                                                    |
 (2. Raw Logs) -----------------------------------> [BridgeContractMonitor]
-                                                 |         ^
-                                                 |         |
-                           (3. Process Log)      V         |
-                                             [EventProcessor]    (4. Dispatch Action)
-                                                 |         |
-                                                 |         |
-                                                 V         |
-                                             [CrossChainDispatcher] --- (5. POST Request) ---> [Destination API]
+                                                    |         ^
+                                                    |         |
+                          (3. Decode Logs)          V         | (4. Dispatch Event)
+                                                [EventProcessor]    |
+                                                    |         |
+                                                    |         |
+                                                    V         |
+                                                [CrossChainDispatcher] --- (5. POST to API) ---> [Destination API]
 ```
 
 #### Orchestration Example
 
-The following snippet from `script.py` shows how the individual components are instantiated and orchestrated by the main function.
+The following snippet from `script.py` shows how the main function instantiates and orchestrates the components.
 
 ```python
 # A simplified view of the main function in script.py
+import asyncio
 
 async def main():
     # Load configuration from .env file
@@ -96,7 +97,7 @@ if __name__ == "__main__":
 
 1.  **Initialization**: The `main` function instantiates the `BridgeContractMonitor`, which in turn sets up the `BlockchainConnector`, `EventProcessor`, and `CrossChainDispatcher` with configuration loaded from a `.env` file.
 
-2.  **Starting Point**: The monitor determines a starting block to scan from. In this simulation, it starts 100 blocks behind the current chain head to provide a buffer. In a production system, this value would be loaded from a persistent store (like a database or file) to resume scanning from the last known block.
+2.  **Starting Point**: The monitor determines a starting block to scan from. In this simulation, it begins 100 blocks behind the current chain head to provide a safe buffer. In a production system, this value would be loaded from a persistent store (like a database or file) to resume scanning from the last known block.
 
 3.  **Polling Loop**: The monitor enters an infinite `asyncio` loop where it:
     a.  Fetches the latest block number from the source chain.
@@ -105,7 +106,7 @@ if __name__ == "__main__":
     d.  Each found log is passed to the `EventProcessor` for decoding.
     e.  The resulting structured data is then passed to the `CrossChainDispatcher`.
     f.  The dispatcher sends this data to the configured mock API endpoint.
-    g.  After successfully scanning the range, it updates `last_scanned_block` to `to_block`, persisting its progress for the next iteration.
+    g.  After successfully scanning the range, it updates `last_scanned_block` to `to_block`, saving its progress in memory for the next iteration.
 
 4.  **Error Handling**: If an RPC connection drops or an API call fails, the respective components will automatically retry the operation several times before logging a critical error.
 
@@ -115,7 +116,7 @@ if __name__ == "__main__":
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-github-username/BegaMon.git
+    git clone https://github.com/<your-github-username>/BegaMon.git
     cd BegaMon
     ```
 
@@ -125,9 +126,9 @@ if __name__ == "__main__":
     ```
 
 3.  **Configure environment variables:**
-    Create a `.env` file in the root directory and add the following configuration. You will need an RPC URL for an Ethereum-compatible chain (e.g., from Infura or Alchemy).
+    Create a `.env` file in the root directory and add the following configuration. You will need an RPC URL for an Ethereum-compatible chain (e.g., from [Infura](https://infura.io/) or [Alchemy](https://www.alchemy.com/)).
 
-    *Note: The `.env` file contains sensitive information and should be added to your `.gitignore` to prevent committing it to version control.*
+    *Note: The `.env` file may contain sensitive information and should be added to your `.gitignore` to prevent committing it to version control.*
 
     ```env
     # .env file
@@ -135,16 +136,16 @@ if __name__ == "__main__":
     # RPC URL for the source chain (e.g., Ethereum Sepolia testnet)
     SOURCE_CHAIN_RPC_URL="https://rpc.sepolia.org"
     
-    # Address of the bridge contract to monitor
+    # Address of the example bridge contract to monitor
     BRIDGE_CONTRACT_ADDRESS="0xc5a61774B7a238B213133A52373079015A75438A"
     
     # The API endpoint of the destination chain's relayer service.
-    # Use a service like webhook.site to generate an endpoint and view the dispatched payloads.
+    # Use a service like webhook.site to generate a test endpoint and view the dispatched payloads.
     DESTINATION_API_ENDPOINT="https://webhook.site/your-unique-endpoint"
     ```
 
 4.  **Add Contract ABI:**
-    The script needs the contract's Application Binary Interface (ABI) to correctly interpret and decode event data. Create a file named `abi.json` in the root directory containing the ABI for the event you are monitoring. For a `TokensLocked` event, it would look something like this:
+    The script needs the contract's Application Binary Interface (ABI) to decode event data. Create a file named `abi.json` in the root directory. For a `TokensLocked` event, the ABI would contain an entry like this:
 
     ```json
     [
@@ -176,9 +177,9 @@ if __name__ == "__main__":
     ```
 
 6.  **Expected Output:**
-    The script will start logging its activities to the console. You will see messages about connecting to the blockchain and scanning block ranges. If the monitored contract has emitted events in the scanned range, you will also see logs for them being processed and dispatched.
+    The script will start logging its activities to the console. You will see messages about connecting to the blockchain and scanning block ranges. If the monitored contract has emitted events in the scanned range, you will see logs for them being processed and dispatched.
 
-    The output will look similar to the following (note: block numbers and timestamps will vary):
+    The output will look similar to this (note: block numbers and timestamps will vary):
 
     ```
     YYYY-MM-DD HH:MM:SS - INFO - --- BegaMon Cross-Chain Bridge Monitor Simulation ---
@@ -190,7 +191,7 @@ if __name__ == "__main__":
     YYYY-MM-DD HH:MM:SS - INFO - Starting bridge event monitoring loop...
     YYYY-MM-DD HH:MM:SS - INFO - Scanning blocks from 4750101 to 4750195...
     YYYY-MM-DD HH:MM:SS - INFO - No new events found in this range.
-    YYYY-MM-DD HH:MM:SS - INFO - No new confirmed blocks to process. Current head: 4750201, last scanned: 4750195
+    YYYY-MM-DD HH:MM:SS - INFO - Waiting for new blocks to be confirmed...
     ...
     ... (after some time, if an event is emitted on-chain) ...
     ...
@@ -200,4 +201,3 @@ if __name__ == "__main__":
     YYYY-MM-DD HH:MM:SS - INFO - Dispatching event: {'user': '0xAbc...', 'amount': 1000000000000000000}
     YYYY-MM-DD HH:MM:SS - INFO - Successfully dispatched event data. API Response: 200
     ```
----
