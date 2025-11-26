@@ -1,7 +1,7 @@
 # BegaMon
 ## A Cross-Chain Bridge Event Listener Simulation
 
-This repository contains a Python-based simulation of a cross-chain bridge event listener. This component is a critical piece of off-chain infrastructure for any decentralized bridge. It is responsible for monitoring events on a source blockchain and triggering corresponding actions on a destination chain.
+This repository contains a Python-based simulation of a cross-chain bridge event listener. This component is a critical piece of the off-chain infrastructure required for any decentralized bridge. It is responsible for monitoring events on a source blockchain and triggering corresponding actions on a destination chain.
 
 The application is designed to be architecturally robust, demonstrating best practices such as separation of concerns, configuration management, and resilient error handling.
 
@@ -60,13 +60,42 @@ The script is divided into several distinct classes, each with a single responsi
                                              [CrossChainDispatcher] --- (5. POST Request) ---> [Destination API]
 ```
 
+#### Orchestration Example
+
+The following snippet from `script.py` shows how the individual components are instantiated and orchestrated by the main function.
+
+```python
+# A simplified view of the main function in script.py
+
+async def main():
+    # Load configuration from .env file
+    config = get_config()
+
+    # Instantiate components
+    connector = BlockchainConnector(rpc_url=config.rpc_url)
+    processor = EventProcessor(contract_abi=config.contract_abi)
+    dispatcher = CrossChainDispatcher(api_endpoint=config.api_endpoint)
+    
+    # Create and run the monitor
+    monitor = BridgeContractMonitor(
+        config=config,
+        connector=connector,
+        processor=processor,
+        dispatcher=dispatcher
+    )
+    await monitor.run()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
 ---
 
 ### How It Works
 
 1.  **Initialization**: The `main` function instantiates the `BridgeContractMonitor`, which in turn sets up the `BlockchainConnector`, `EventProcessor`, and `CrossChainDispatcher` with configuration loaded from a `.env` file.
 
-2.  **Starting Point**: The monitor determines a starting block to scan from. In this simulation, it starts 100 blocks behind the current chain head to ensure it has a buffer. In a production system, it would load the last scanned block from a persistent database or file.
+2.  **Starting Point**: The monitor determines a starting block to scan from. In this simulation, it starts 100 blocks behind the current chain head to provide a buffer. In a production system, this value would be loaded from a persistent store (like a database or file) to resume scanning from the last known block.
 
 3.  **Polling Loop**: The monitor enters an infinite `asyncio` loop where it:
     a.  Fetches the latest block number from the source chain.
@@ -74,7 +103,7 @@ The script is divided into several distinct classes, each with a single responsi
     c.  If new blocks have been confirmed (i.e., `to_block` > `last_scanned_block`), it requests all `TokensLocked` event logs within this new block range.
     d.  Each found log is passed to the `EventProcessor` for decoding.
     e.  The resulting structured data is then passed to the `CrossChainDispatcher`.
-    f.  Finally, the dispatcher sends this data to the configured mock API endpoint.
+    f.  The dispatcher sends this data to the configured mock API endpoint.
     g.  After successfully scanning the range, it updates `last_scanned_block` to `to_block` to mark its progress.
 
 4.  **Error Handling**: If an RPC connection drops or an API call fails, the respective components will automatically retry the operation several times before logging a critical error.
@@ -85,7 +114,7 @@ The script is divided into several distinct classes, each with a single responsi
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/BegaMon.git
+    git clone https://github.com/your-github-username/BegaMon.git
     cd BegaMon
     ```
 
@@ -95,7 +124,7 @@ The script is divided into several distinct classes, each with a single responsi
     ```
 
 3.  **Configure environment variables:**
-    Create a file named `.env` in the root directory and add the following configuration. You will need an RPC URL for an Ethereum-compatible chain (e.g., from Infura or Alchemy).
+    Create a `.env` file in the root directory and add the following configuration. You will need an RPC URL for an Ethereum-compatible chain (e.g., from Infura or Alchemy).
 
     *Note: The `.env` file contains sensitive information and should be added to your `.gitignore` to prevent committing it to version control.*
 
@@ -162,5 +191,3 @@ The script is divided into several distinct classes, each with a single responsi
     YYYY-MM-DD HH:MM:SS - INFO - No new confirmed blocks to process. Current head: 4750201, last scanned: 4750195
     ...
     ```
-
----
