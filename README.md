@@ -45,20 +45,10 @@ The application is architected with several distinct classes, each with a single
 
 #### Data Flow
 
-```
-[RPC Node] <--> (1. Fetch Blocks/Logs) <--> [BlockchainConnector]
-                                                    |
-                                                    |
-(2. Raw Logs) -----------------------------------> [BridgeContractMonitor]
-                                                    |         ^
-                                                    |         |
-                          (3. Decode Logs)          V         | (4. Dispatch Event)
-                                                [EventProcessor]    |
-                                                    |         |
-                                                    |         |
-                                                    V         |
-                                                [CrossChainDispatcher] --- (5. POST to API) ---> [Destination API]
-```
+1.  The `BridgeContractMonitor` orchestrates the process. It uses the `BlockchainConnector` to fetch raw event logs from the source chain's RPC node.
+2.  The raw logs are passed to the `EventProcessor`, which decodes them into a structured, human-readable format using the contract's ABI.
+3.  The processed event data is then given to the `CrossChainDispatcher`.
+4.  The `CrossChainDispatcher` formats this data and sends it as an HTTP POST request to the destination API endpoint, completing the relay process.
 
 #### Orchestration Example
 
@@ -103,7 +93,7 @@ if __name__ == "__main__":
     a.  Fetches the latest block number from the source chain.
     b.  Calculates a `to_block` number by subtracting a confirmation delay (e.g., 6 blocks) from the latest block. This prevents processing transactions that might be reversed in a reorg.
     c.  If new blocks have been confirmed (i.e., `to_block` > `last_scanned_block`), it requests all `TokensLocked` event logs within this new block range.
-    d.  Each found log is passed to the `EventProcessor` for decoding.
+    d.  Each log found is passed to the `EventProcessor` for decoding.
     e.  The resulting structured data is then passed to the `CrossChainDispatcher`.
     f.  The dispatcher sends this data to the configured mock API endpoint.
     g.  After successfully scanning the range, it updates `last_scanned_block` to `to_block`, saving its progress in memory for the next iteration.
@@ -139,13 +129,13 @@ if __name__ == "__main__":
     # Address of the example bridge contract to monitor
     BRIDGE_CONTRACT_ADDRESS="0xc5a61774B7a238B213133A52373079015A75438A"
     
-    # The API endpoint of the destination chain's relayer service.
+    # The API endpoint to which the event data will be relayed.
     # Use a service like webhook.site to generate a test endpoint and view the dispatched payloads.
     DESTINATION_API_ENDPOINT="https://webhook.site/your-unique-endpoint"
     ```
 
 4.  **Add Contract ABI:**
-    The script needs the contract's Application Binary Interface (ABI) to decode event data. Create a file named `abi.json` in the root directory. For a `TokensLocked` event, the ABI would contain an entry like this:
+    The script needs the contract's Application Binary Interface (ABI) to decode event data. Create a file named `abi.json` in the root directory. The ABI is a JSON array; you only need to include the definition for the specific event(s) you want to monitor. For a `TokensLocked` event, the ABI would contain an entry like this:
 
     ```json
     [
