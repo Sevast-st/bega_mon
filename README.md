@@ -23,7 +23,7 @@ This project simulates the **listener** and **dispatcher** components (steps 3-5
 
 ### Code Architecture
 
-The script is divided into several distinct classes, each with a single responsibility. This makes the system modular, easier to test, and more understandable.
+The application is architected with several distinct classes, each with a single responsibility. This makes the system modular, easier to test, and more understandable.
 
 *   `BlockchainConnector`:
     *   **Responsibility**: Manages all direct communication with the source chain's RPC node using the `web3.py` library.
@@ -86,6 +86,7 @@ async def main():
     await monitor.run()
 
 if __name__ == "__main__":
+    # Start the asynchronous event loop
     asyncio.run(main())
 ```
 
@@ -104,7 +105,7 @@ if __name__ == "__main__":
     d.  Each found log is passed to the `EventProcessor` for decoding.
     e.  The resulting structured data is then passed to the `CrossChainDispatcher`.
     f.  The dispatcher sends this data to the configured mock API endpoint.
-    g.  After successfully scanning the range, it updates `last_scanned_block` to `to_block` to mark its progress.
+    g.  After successfully scanning the range, it updates `last_scanned_block` to `to_block`, persisting its progress for the next iteration.
 
 4.  **Error Handling**: If an RPC connection drops or an API call fails, the respective components will automatically retry the operation several times before logging a critical error.
 
@@ -137,8 +138,9 @@ if __name__ == "__main__":
     # Address of the bridge contract to monitor
     BRIDGE_CONTRACT_ADDRESS="0xc5a61774B7a238B213133A52373079015A75438A"
     
-    # The API endpoint of the destination chain's relayer service (mocked)
-    DESTINATION_API_ENDPOINT="https://jsonplaceholder.typicode.com/posts" # A public mock API for testing
+    # The API endpoint of the destination chain's relayer service.
+    # Use a service like webhook.site to generate an endpoint and view the dispatched payloads.
+    DESTINATION_API_ENDPOINT="https://webhook.site/your-unique-endpoint"
     ```
 
 4.  **Add Contract ABI:**
@@ -176,7 +178,7 @@ if __name__ == "__main__":
 6.  **Expected Output:**
     The script will start logging its activities to the console. You will see messages about connecting to the blockchain and scanning block ranges. If the monitored contract has emitted events in the scanned range, you will also see logs for them being processed and dispatched.
 
-    The output will look similar to the following (note: actual block numbers and timestamps will vary):
+    The output will look similar to the following (note: block numbers and timestamps will vary):
 
     ```
     YYYY-MM-DD HH:MM:SS - INFO - --- BegaMon Cross-Chain Bridge Monitor Simulation ---
@@ -190,4 +192,12 @@ if __name__ == "__main__":
     YYYY-MM-DD HH:MM:SS - INFO - No new events found in this range.
     YYYY-MM-DD HH:MM:SS - INFO - No new confirmed blocks to process. Current head: 4750201, last scanned: 4750195
     ...
+    ... (after some time, if an event is emitted on-chain) ...
+    ...
+    YYYY-MM-DD HH:MM:SS - INFO - Scanning blocks from 4750211 to 4750215...
+    YYYY-MM-DD HH:MM:SS - INFO - Found 1 new event(s).
+    YYYY-MM-DD HH:MM:SS - INFO - Processing event from block 4750212, tx_hash: 0x123abc...
+    YYYY-MM-DD HH:MM:SS - INFO - Dispatching event: {'user': '0xAbc...', 'amount': 1000000000000000000}
+    YYYY-MM-DD HH:MM:SS - INFO - Successfully dispatched event data. API Response: 200
     ```
+---
