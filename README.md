@@ -1,7 +1,7 @@
 # BegaMon
 ## A Cross-Chain Bridge Event Listener Simulation
 
-This repository contains a Python-based simulation of a cross-chain bridge event listener. This component is a critical piece of off-chain infrastructure for any decentralized bridge, responsible for monitoring events on a source blockchain and triggering corresponding actions on a destination chain.
+This repository contains a Python-based simulation of a cross-chain bridge event listener. This component is a critical piece of off-chain infrastructure for any decentralized bridge. It is responsible for monitoring events on a source blockchain and triggering corresponding actions on a destination chain.
 
 The application is designed to be architecturally robust, demonstrating best practices such as separation of concerns, configuration management, and resilient error handling.
 
@@ -26,7 +26,7 @@ This project simulates the **listener** and **dispatcher** components (steps 3-5
 The script is divided into several distinct classes, each with a single responsibility. This makes the system modular, easier to test, and more understandable.
 
 *   `BlockchainConnector`:
-    *   **Responsibility**: Manages all direct communication with a source chain's RPC node using the `web3.py` library.
+    *   **Responsibility**: Manages all direct communication with the source chain's RPC node using the `web3.py` library.
     *   **Key Functions**: Establishes and maintains a connection, fetches the latest block number, and retrieves event logs for specified block ranges.
     *   **Features**: Includes connection retry logic with exponential backoff.
 
@@ -72,9 +72,9 @@ The script is divided into several distinct classes, each with a single responsi
     a.  Fetches the latest block number from the source chain.
     b.  Calculates a `to_block` number by subtracting a confirmation delay (e.g., 6 blocks) from the latest block. This prevents processing transactions that might be reversed in a reorg.
     c.  If new blocks have been confirmed (i.e., `to_block` > `last_scanned_block`), it requests all `TokensLocked` event logs within this new block range.
-    d.  For each log found, it is passed to the `EventProcessor` to be decoded.
-    e.  The resulting structured data is passed to the `CrossChainDispatcher`.
-    f.  The dispatcher sends the data to the configured mock API endpoint.
+    d.  Each found log is passed to the `EventProcessor` for decoding.
+    e.  The resulting structured data is then passed to the `CrossChainDispatcher`.
+    f.  Finally, the dispatcher sends this data to the configured mock API endpoint.
     g.  After successfully scanning the range, it updates `last_scanned_block` to `to_block` to mark its progress.
 
 4.  **Error Handling**: If an RPC connection drops or an API call fails, the respective components will automatically retry the operation several times before logging a critical error.
@@ -113,7 +113,7 @@ The script is divided into several distinct classes, each with a single responsi
     ```
 
 4.  **Add Contract ABI:**
-    The script needs the contract's ABI to decode events. Create a file named `abi.json` in the root directory containing the ABI for the event you are monitoring. For a `TokensLocked` event, it would look something like this:
+    The script needs the contract's Application Binary Interface (ABI) to correctly interpret and decode event data. Create a file named `abi.json` in the root directory containing the ABI for the event you are monitoring. For a `TokensLocked` event, it would look something like this:
 
     ```json
     [
@@ -139,13 +139,15 @@ The script is divided into several distinct classes, each with a single responsi
     ]
     ```
 
-5.  **Run the script:**
+5.  **Run the monitor:**
     ```bash
     python script.py
     ```
 
 6.  **Expected Output:**
     The script will start logging its activities to the console. You will see messages about connecting to the blockchain and scanning block ranges. If the monitored contract has emitted events in the scanned range, you will also see logs for them being processed and dispatched.
+
+    The output will look similar to the following (note: actual block numbers and timestamps will vary):
 
     ```
     YYYY-MM-DD HH:MM:SS - INFO - --- BegaMon Cross-Chain Bridge Monitor Simulation ---
